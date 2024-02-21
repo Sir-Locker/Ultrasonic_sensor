@@ -3,24 +3,33 @@
 #include "Ultrasonic.h"
 
 // REPLACE WITH YOUR ESP RECEIVER'S MAC ADDRESS
-uint8_t broadcastAddress1[] = {0x3C, 0x61, 0x05, 0x03, 0xCA, 0x04};
+uint8_t servoAddress[] = {0x24, 0x6F, 0x28, 0x28, 0x17, 0x1C};
 
-typedef struct test_struct {
-  int sendData;
-} test_struct;
+bool compareMac(const uint8_t * a,const uint8_t * b){
+  for(int i=0;i<6;i++){
+    if(a[i]!=b[i])
+      return false;    
+  }
+  return true;
+}
 
-test_struct test;
+typedef struct ultrasonic_send {
+  int stateUltra; // 1 = ประตูปิด, 0 = ประตูเปิด
+} ultrasonic_send;
 
-typedef struct send_mode{
-  int statuss; 
-}send_mode;
+ultrasonic_send test;
+
+typedef struct servo_struct{
+  int servo_status;//1 = lock, 0 = unlock
+} servo_struct;
 
 // Create a struct_message called myData
-send_mode myData;
-
-send_mode board1;
+servo_struct myData;
+servo_struct servoBoard;
 
 esp_now_peer_info_t peerInfo;
+
+int c = 0;
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -41,10 +50,14 @@ void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) 
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
   Serial.println(macStr);
-  memcpy(&myData, incomingData, sizeof(myData));
-  // Update the structures with the new incoming data
-  board1.statuss = myData.statuss;
-  Serial.printf("status: %d \n", board1.statuss);
+  if(compareMac(mac_addr,servoAddress)){
+    memcpy(&myData, incomingData, sizeof(myData));
+    Serial.printf("--------From Choon : servo---------\n");
+    servoBoard.servo_status = myData.servo_status;
+    Serial.printf("status: %d \n", servoBoard.servo_status);
+    Serial.printf("---------------------------------\n");
+    Serial.println();
+  }
 }
 
 Ultrasonic ultrasonic(22);
@@ -64,7 +77,7 @@ void setup()
   peerInfo.channel = 0;  
   peerInfo.encrypt = false;
   // register first peer  
-  memcpy(peerInfo.peer_addr, broadcastAddress1, 6);
+  memcpy(peerInfo.peer_addr, servoAddress, 6);
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
@@ -84,23 +97,26 @@ void loop()
   Serial.print(RangeInCentimeters);//0~400cm
   Serial.println(" cm");
   if(RangeInCentimeters<5){
-    test.sendData = 1;
+    c = c+1;
+    if(c > 2){
+      test.stateUltra = 1;
+    }
   }
   else{
-    test.sendData = 0;
+    test.stateUltra = 0;
+    c = 0;
   }
- 
-  esp_err_t result = esp_now_send(broadcastAddress1, (uint8_t *) &test, sizeof(test_struct));
-   
+  esp_err_t result = esp_now_send(servoAddress, (uint8_t *) &test, sizeof(ultrasonic_send));
   if (result == ESP_OK) {
     Serial.println("Sent with success");
   }
   else {
     Serial.println("Error sending the data");
   }
+ 
 
-  int recv_board1 = board1.statuss;
-  Serial.printf("recv_board1 status: %d \n", recv_board1);
+  int recv_servoBoard = servoBoard.servo_status;
+  Serial.printf("recv_servoBoard status: %d \n", recv_servoBoard);
   Serial.println();
   delay(1000);
 }
