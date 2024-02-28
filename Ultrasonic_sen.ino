@@ -96,7 +96,7 @@ void loop()
   RangeInCentimeters = ultrasonic.MeasureInCentimeters(); // two measurements should keep an interval
   Serial.print(RangeInCentimeters);//0~400cm
   Serial.println(" cm");
-  if(RangeInCentimeters<5){
+  if(RangeInCentimeters<3){
     c = c+1;
     if(c > 2){
       test.stateUltra = 1;
